@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"websocket/server"
 
@@ -9,7 +8,6 @@ import (
 )
 
 func main() {
-	fmt.Println("studious-waffle is a Go(app)")
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
