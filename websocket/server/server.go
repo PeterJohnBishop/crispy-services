@@ -52,5 +52,11 @@ func ServeGin() {
 
 	config := fmt.Sprintf(":%s", port)
 	log.Printf("Serving Websocket Gin on port :%s", port)
-	r.Run(config)
+	go func() {
+		r.Run(config)
+	}()
+
+	time.Sleep(1 * time.Second)
+	ws.StartInternalClient("localhost:8081", "/ws")
+	select {}
 }
