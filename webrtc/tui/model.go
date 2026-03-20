@@ -2,59 +2,90 @@ package tui
 
 import (
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
-// model
+// UI States
+const (
+	stateChat = iota
+	statePopup
+)
 
-type Model struct {
-	status    int
-	message   textinput.Model
-	savePath  textinput.Model
-	filePath  textinput.Model
-	senderID  string
-	targetIDs []string
-	err       error
+// Focus Elements
+const (
+	focusSavePath = iota
+	focusAttachBtn
+	focusMsgInput
+	focusSendBtn
+)
+
+// Styling
+var (
+	borderStyle  = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0, 1)
+	focusedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true)
+	buttonStyle  = lipgloss.NewStyle().Background(lipgloss.Color("62")).Foreground(lipgloss.Color("230")).Padding(0, 1)
+	activeBtn    = buttonStyle.Copy().Background(lipgloss.Color("205"))
+	popupStyle   = lipgloss.NewStyle().Border(lipgloss.ThickBorder()).BorderForeground(lipgloss.Color("62")).Padding(1, 2).Background(lipgloss.Color("0"))
+)
+
+type model struct {
+	connected  bool
+	statusChan chan bool
+	state      int
+	focus      int
+	width      int
+	height     int
+
+	// Main Chat UI
+	savePathInput textinput.Model
+	chatViewport  viewport.Model
+	msgInput      textinput.Model
+	messages      []string
+
+	// Popup UI
+	popupPathInput textinput.Model
+	clients        []string
+	clientCursor   int
 }
 
-func initialModel() Model {
-	messageti := textinput.New()
-	messageti.Placeholder = "hey!"
-	messageti.Focus()
-	messageti.CharLimit = 256
-	messageti.Width = 64
+type statusMsg bool
 
-	saveti := textinput.New()
-	saveti.Placeholder = "./save_file_directory/here"
-	saveti.CharLimit = 256
-	saveti.Width = 64
-
-	fileti := textinput.New()
-	fileti.Placeholder = "./file_location/here"
-	fileti.CharLimit = 265
-	fileti.Width = 64
-
-	return Model{
-		status:    0,
-		message:   messageti,
-		savePath:  saveti,
-		filePath:  fileti,
-		senderID:  "",
-		targetIDs: []string{},
-		err:       nil,
+func listenForConnection(sub chan bool) tea.Cmd {
+	return func() tea.Msg {
+		return statusMsg(<-sub)
 	}
-
 }
 
-// status indicator (is the websocket client connected to the server?)
+func initialModel(statusChan chan bool) model {
+	sp := textinput.New()
+	sp.Placeholder = "/path/to/save/files"
+	sp.Focus()
 
-// define a savePath for files, if none is defined show warning
+	mi := textinput.New()
+	mi.Placeholder = "Type a message..."
 
-// select target for message or file (popup)
+	pp := textinput.New()
+	pp.Placeholder = "/path/to/attachment"
 
-// message input
+	vp := viewport.New(0, 0)
+	vp.SetContent("Welcome to the chat!\n")
 
-// file viewer
+	return model{
+		connected:      false,
+		statusChan:     statusChan,
+		state:          stateChat,
+		focus:          focusSavePath,
+		savePathInput:  sp,
+		msgInput:       mi,
+		chatViewport:   vp,
+		popupPathInput: pp,
+		messages:       []string{"System: Connected."},
+		clients:        []string{"Client A", "Client B", "Client C"},
+	}
+}
 
-// file path input (popup)
-
-// send button, if target not defined disable button
+func (m model) Init() tea.Cmd {
+	return tea.Batch(textinput.Blink, listenForConnection(m.statusChan))
+}

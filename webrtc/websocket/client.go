@@ -26,7 +26,7 @@ var (
 	idMu       sync.RWMutex
 )
 
-func StartWsClient(addr string, path string, savePath string) {
+func StartWsClient(addr string, path string, savePath string, statusChan chan<- bool) {
 	u := url.URL{Scheme: "ws", Host: addr, Path: path}
 	log.Printf("Client connecting to %s", u.String())
 
@@ -60,16 +60,18 @@ func StartWsClient(addr string, path string, savePath string) {
 	go func() {
 		defer conn.Close()
 		defer pc.Close()
+		defer func() { statusChan <- false }()
+
 		for {
 			var event Event
 			err := conn.ReadJSON(&event)
 			if err != nil {
-				log.Printf("Client read error: %v", err)
 				return
 			}
 
 			switch event.Type {
 			case "connected":
+				statusChan <- true
 				idMu.Lock()
 				assignedID = fmt.Sprint(event.Content)
 				idMu.Unlock()

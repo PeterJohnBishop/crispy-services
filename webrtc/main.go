@@ -1,8 +1,14 @@
 package main
 
-import wsclient "webrtc/websocket"
+import (
+	"webrtc/tui"
+	wsclient "webrtc/websocket"
+)
 
 func main() {
-	wsclient.StartWsClient("localhost:8081", "/ws", "/Users/m4pro/Downloads")
-	select {}
+	statusChan := make(chan bool)
+
+	go wsclient.StartWsClient("localhost:8081", "/ws", "/Users/m4pro/Downloads", statusChan)
+
+	tui.BrewTui(statusChan)
 }
