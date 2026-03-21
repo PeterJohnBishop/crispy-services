@@ -1,6 +1,8 @@
 package tui
 
 import (
+	wsclient "webrtc/websocket"
+
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -33,6 +35,7 @@ var (
 type model struct {
 	connected  bool
 	statusChan chan bool
+	wsc        *wsclient.WSClient
 	state      int
 	focus      int
 	width      int
@@ -58,7 +61,7 @@ func listenForConnection(sub chan bool) tea.Cmd {
 	}
 }
 
-func initialModel(statusChan chan bool) model {
+func initialModel(statusChan chan bool, wsc *wsclient.WSClient) model {
 	sp := textinput.New()
 	sp.Placeholder = "/path/to/save/files"
 	sp.Focus()
@@ -75,6 +78,7 @@ func initialModel(statusChan chan bool) model {
 	return model{
 		connected:      false,
 		statusChan:     statusChan,
+		wsc:            wsc,
 		state:          stateChat,
 		focus:          focusSavePath,
 		savePathInput:  sp,

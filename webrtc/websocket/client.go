@@ -13,6 +13,11 @@ import (
 	pion "github.com/pion/webrtc/v3"
 )
 
+type WSClient struct {
+	SendChan chan<- Event
+	Close    func() error
+}
+
 // Event matches the structure used by the RTC manager
 type Event struct {
 	Type     string      `json:"type"`
@@ -26,14 +31,13 @@ var (
 	idMu       sync.RWMutex
 )
 
-func StartWsClient(addr string, path string, savePath string, statusChan chan<- bool) {
+func StartWsClient(addr string, path string, savePath string, statusChan chan<- bool) (*WSClient, error) {
 	u := url.URL{Scheme: "ws", Host: addr, Path: path}
 	log.Printf("Client connecting to %s", u.String())
 
 	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
-		log.Printf("Dial error: %v", err)
-		return
+		return nil, fmt.Errorf("Dial error: %w", err)
 	}
 
 	// Setup PeerConnection
@@ -41,14 +45,26 @@ func StartWsClient(addr string, path string, savePath string, statusChan chan<- 
 		ICEServers: []pion.ICEServer{{URLs: []string{"stun:stun.l.google.com:19302"}}},
 	})
 	if err != nil {
-		log.Printf("RTC Error: %v", err)
-		return
+		conn.Close()
+		return nil, fmt.Errorf("RTC error: %w", err)
 	}
 
 	manager := rtc.NewFileTransferManager(pc, conn)
 	manager.PrepareReceiver(savePath)
 
 	send := make(chan Event)
+
+	wsc := &WSClient{
+		SendChan: send,
+		Close: func() error {
+			pcErr := pc.Close()
+			connErr := conn.Close()
+			if connErr != nil {
+				return connErr
+			}
+			return pcErr
+		},
+	}
 
 	// Helper for decoding Content any -> WebRTC Structs
 	decode := func(src any, dst any) {
@@ -140,6 +156,7 @@ func StartWsClient(addr string, path string, savePath string, statusChan chan<- 
 		}
 	}()
 
+	return wsc, nil
 }
 
 func GetAssignedID() string {
